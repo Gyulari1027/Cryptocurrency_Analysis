@@ -1,0 +1,29 @@
+# 가격정보 import
+def importCSV_price(dateCode, priceCode) :
+    data = []
+    dataReader = csv.reader(open('./BTC_' + priceCode + '_price_' + dateCode + '.csv', 'r'))
+    dataList = list(dataReader)
+    for row in dataList :
+        for price in row :
+            data.append(float(price))
+
+    return data
+
+# BTC 저가/종가 데이터 import 및 시각화
+import csv
+import numpy as np
+import matplotlib.pyplot as plt
+
+BTC_low_week_data = importCSV_price('week', 'low')
+BTC_low_day_data = importCSV_price('day', 'low')
+BTC_trade_week_data = importCSV_price('week', 'trade')
+BTC_trade_day_data = importCSV_price('day', 'trade')
+
+plt.figure(figsize=(28,10))
+plt.subplot(2,1,1)
+plt.plot(BTC_low_week_data)
+plt.plot(BTC_trade_week_data)
+plt.figure(figsize=(28,10))
+plt.subplot(2,1,2)
+plt.plot(BTC_low_day_data)
+plt.plot(BTC_trade_day_data)
