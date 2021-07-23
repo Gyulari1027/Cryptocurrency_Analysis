@@ -1,0 +1,3 @@
+# Working Directory 설정 [Google Drive]
+import os
+os.chdir('/content/drive/MyDrive/Crypto/data/')
