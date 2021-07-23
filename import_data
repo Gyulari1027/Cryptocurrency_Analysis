@@ -14,16 +14,19 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
+# BTC 가격정보 import
 BTC_low_week_data = importCSV_price('week', 'low')
 BTC_low_day_data = importCSV_price('day', 'low')
 BTC_trade_week_data = importCSV_price('week', 'trade')
 BTC_trade_day_data = importCSV_price('day', 'trade')
 
+# 데이터 시각화 [주간 데이터]
 plt.figure(figsize=(28,10))
 plt.subplot(2,1,1)
 plt.plot(BTC_low_week_data)
 plt.plot(BTC_trade_week_data)
 
+# 데이터 시각화 [일간 데이터]
 plt.figure(figsize=(28,10))
 plt.subplot(2,1,2)
 plt.plot(BTC_low_day_data)
