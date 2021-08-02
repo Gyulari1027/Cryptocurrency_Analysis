@@ -1,0 +1,308 @@
+# 암호화폐 목록 불러오기
+def load_crypto_list() :
+    crypto_list = []
+
+    crypto_csv = open('crypto_list.csv', 'r')
+    crypto_csv_reader = csv.reader(crypto_csv)
+    
+    for row in crypto_csv_reader :
+        for crypto in row :
+            crypto_list.append(crypto)
+
+    return crypto_list
+    
+# 암호화폐 Upbit 상장 시점 불러오기
+def load_init_time(data_code, crypto_list, crypto_idx) :
+    init_csv = open('crypto_init_time_' + data_code + '.csv', 'r')
+    init_csv_reader = csv.reader(init_csv)
+    crypto_init_time = {rows[0] : rows[1] for rows in init_csv_reader}
+
+    return crypto_init_time[crypto_list[crypto_idx] + '_init_time']
+    
+# 암호화폐 Upbit 상장 이후 데이터 수 연산
+def cal_data_num(data_code, init_time) :
+    pass_time = datetime.now() - datetime.strptime(init_time, '%Y-%m-%d %H:%M:%S.%f')
+
+    if (data_code == 'week') :
+        return ((pass_time.days * 86400) // 604800) + 1
+    elif (data_code == 'day') :
+        return pass_time.days + 1
+
+# 연속된 일시적 거래 중지 주차 수 연산
+def is_suspension(data_code, before_time, after_time) :
+    pass_time = (datetime.strptime(after_time, '%Y-%m-%dT%H:%M:%S') - datetime.strptime(before_time, '%Y-%m-%dT%H:%M:%S')).days * 86400
+    
+    if (data_code == 'week') :
+        return (pass_time // 604800) - 1
+    elif (data_code == 'day') :
+        return (pass_time // 86400) -1
+
+# 데이터 저장 csv 파일 지정
+def set_csv(data_code) :
+    # 가격 데이터 저장 csv 파일 지정
+    save_csv_low = open('crypto_data_low_' + data_code + '.csv', 'w', newline = "")
+    save_csv_trade = open('crypto_data_trade_' + data_code + '.csv', 'w', newline = "")
+    save_csv_opening = open('crypto_data_opening_' + data_code + '.csv', 'w', newline = "")
+
+    # 각 csv 파일 별 writer 생성
+    crypto_writer_low = csv.writer(save_csv_low)
+    crypto_writer_trade = csv.writer(save_csv_trade)
+    crypto_writer_opening = csv.writer(save_csv_opening)
+
+    csv_writer = {'low' : crypto_writer_low,
+                  'trade' : crypto_writer_trade,
+                  'opening' : crypto_writer_opening}
+
+    return csv_writer
+
+# csv 파일 서식 지정
+def set_csv_format(csv_writer, crypto_data) :
+    entire_date_list = []
+    entire_date_list.append("항목")
+    
+    for date_idx in range(len(crypto_data)-1, -1, -1) :
+        entire_date_list.append(crypto_data[date_idx]["candle_date_time_kst"])
+
+    csv_writer['low'].writerow(entire_date_list)
+    csv_writer['trade'].writerow(entire_date_list)
+    csv_writer['opening'].writerow(entire_date_list)
+
+# 데이터 크롤링
+def crawling(data_code, url, headers, count, crypto_name) :
+    global delay_429
+    api_over = 0
+    time_code = {'week' : 7, 'day' : 1}
+
+    while(api_over*200 <= count) :
+        # 초기 상태
+        if (api_over == 0) :
+            if(count <= 200) :
+                querystring = {"market" : "KRW-" + crypto_name, "count" : count} 
+            else :
+                querystring = {"market" : "KRW-" + crypto_name, "count" : "200"}
+
+            upbit_response = requests.get(url, headers=headers, params = querystring)
+            crypto_data = json.loads(upbit_response.text)
+            api_over += 1
+            delay_429 += 1
+
+            # Error 429 방지용 지연 유발
+            if(delay_429 == 10) :
+                time.sleep(0.5)
+                delay_429 = 0
+        
+        # 크롤링 건수 200건 이상
+        else :
+            adj_time = datetime.now() - timedelta(days = 200 * time_code[data_code] * api_over)
+            adj_time = adj_time.strftime('%Y-%m-%d %H:%M:%S')
+            if(count - 200*api_over <= 200) :
+                querystring = {"market" : "KRW-" + crypto_name, "to" : adj_time, "count" : count - 200*api_over}
+            else :
+                querystring = {"market" : "KRW-" + crypto_name, "to" : adj_time, "count" : "200"}
+
+            upbit_response = requests.get(url, headers=headers, params = querystring)
+            crypto_data.extend(json.loads(upbit_response.text))
+            api_over += 1
+            delay_429 += 1
+
+            # Error 429 방지용 지연 유발
+            if(delay_429 == 10) :
+                time.sleep(0.5)
+                delay_429 = 0
+
+    crawling_data = {'data' : crypto_data, 'status_code' : upbit_response.status_code}
+
+    return crawling_data
+
+# 암호화폐 주간 차트 데이터 크롤링
+def crawling_weeks_data() :
+    csv_writer = set_csv('week')
+
+    # 암호화폐 목록 리스트
+    crypto_list = load_crypto_list()
+
+    # Upbit 주봉 데이터 API URL
+    url = "https://api.upbit.com/v1/candles/weeks"
+    headers = {"Accept" : "application/json"}
+
+    # 암호화폐 별 데이터 크롤링
+    for crypto_idx in range(0, len(crypto_list)) :
+        # 일시적 거래 정지 확인 변수
+        entire_trade_stop = 0
+        
+        # csv 파일 입력을 위한 list 선언
+        crypto_low_price_list = []
+        crypto_trade_price_list = []
+        crypto_opening_price_list = []
+
+        # 암호화폐 목록 열 삽입
+        crypto_low_price_list.append(crypto_list[crypto_idx])
+        crypto_trade_price_list.append(crypto_list[crypto_idx])
+        crypto_opening_price_list.append(crypto_list[crypto_idx])
+
+        # 암호화폐 개별 상장 이후 주수 연산
+        init_time = load_init_time('week', crypto_list, crypto_idx)
+        count = cal_data_num('week', init_time)
+
+        # 주간 데이터 크롤링
+        crawling_data = crawling('week', url, headers, count, crypto_list[crypto_idx])
+        crypto_data = crawling_data['data']
+        status_code = crawling_data['status_code']
+
+        # 정상 status_code 수신 시 코드 실행
+        if (status_code == 200) :
+            print("=== " + crypto_list[crypto_idx] + " === (%.2f%% / 100.00%%)\n" % (float(crypto_idx+1)/len(crypto_list)*100))
+            
+            # csv 파일 서식 지정 및 최대 가능 데이터 수 연산 (BTC 기준)
+            if(crypto_idx == 0) :
+                set_csv_format(csv_writer, crypto_data)
+                max_data_num = len(crypto_data)
+
+            # 데이터가 없는 주차에 공란 삽입
+            for blank in range(0, max_data_num - count) :
+                crypto_low_price_list.append(None)
+                crypto_trade_price_list.append(None)
+                crypto_opening_price_list.append(None)
+
+            # 각 리스트에 데이터 삽입
+            for data_idx in range(len(crypto_data)-1, -1, -1) :
+                # index out of range 방지, 상장 주 거래 중지는 무의미
+                if(data_idx != 0) :
+                    if(is_suspension('week', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
+                        # 일시적 거래 중지 직전 주의 데이터 입력
+                        crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                        crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
+                        crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+                        # 일시적 거래 중지 주수만큼 공란 삽입
+                        for sus in range(0, is_suspension('week', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
+                            crypto_low_price_list.append(None)
+                            crypto_trade_price_list.append(None)
+                            crypto_opening_price_list.append(None)
+                            entire_trade_stop += 1
+                        continue
+
+                # 일반적인 경우의 데이터 입력
+                crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
+                crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+
+            # 일시적 거래 정지 일수만큼 초과 저장된 api 정보 삭제
+            if (entire_trade_stop != 0) :
+                delnum = max_data_num - count + 1
+
+                del crypto_low_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_trade_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_opening_price_list[delnum:delnum + entire_trade_stop]
+
+            # 각 csv파일에 각 리스트 입력
+            csv_writer['low'].writerow(crypto_low_price_list)
+            csv_writer['trade'].writerow(crypto_trade_price_list)
+            csv_writer['opening'].writerow(crypto_opening_price_list)
+
+            # 일시적 거래 정지 존재 경고 출력
+            if(entire_trade_stop) :
+                print("WARNING : Suspension")
+                print("This cryptocurrency " + crypto_list[crypto_idx] + " had %d temporary suspensions.\n" % entire_trade_stop)
+
+        # Requests Error - Status_Code 출력
+        else :
+            print("Critical ERROR!")
+            print("ERROR CODE : %d" % status_code)
+            break
+
+# 암호화폐 일간 차트 데이터 크롤링
+def crawling_days_data() :
+    csv_writer = set_csv('day')
+
+    # 암호화폐 목록 리스트
+    crypto_list = load_crypto_list()
+
+    # Upbit 일봉 데이터 API URL
+    url = "https://api.upbit.com/v1/candles/days"
+    headers = {"Accept" : "application/json"}
+
+    # 암호화폐 별 데이터 크롤링
+    for crypto_idx in range(0, len(crypto_list)) :
+        # 일시적 거래 정지 확인 변수
+        entire_trade_stop = 0   # 전 기간 거래 정지 수
+
+        # csv 파일 입력을 위한 list 선언
+        crypto_low_price_list = []
+        crypto_trade_price_list = []
+        crypto_opening_price_list = []
+
+        # 암호화폐 목록 열 삽입
+        crypto_low_price_list.append(crypto_list[crypto_idx])
+        crypto_trade_price_list.append(crypto_list[crypto_idx])
+        crypto_opening_price_list.append(crypto_list[crypto_idx])
+
+        # 암호화폐 개별 상장 이후 일수 연산
+        init_time = load_init_time('day', crypto_list, crypto_idx)
+        count = cal_data_num('day', init_time)
+
+        # 일간 데이터 크롤링
+        crawling_data = crawling('day', url, headers, count, crypto_list[crypto_idx])
+        crypto_data = crawling_data['data']
+        status_code = crawling_data['status_code']
+
+        # 정상 status_code 수신 시 코드 실행
+        if (status_code == 200) :
+            print("=== " + crypto_list[crypto_idx] + " === (%.2f%% / 100.00%%)\n" % (float(crypto_idx+1)/len(crypto_list)*100))
+
+            # csv 파일 서식 지정 및 최대 가능 데이터 수 연산 (BTC 기준)
+            if(crypto_idx == 0) :
+                set_csv_format(csv_writer, crypto_data)
+                max_data_num = len(crypto_data)
+
+            # 데이터가 없는 주차에 공란 삽입
+            for blank in range(0, max_data_num - count) :
+                crypto_low_price_list.append(None)
+                crypto_trade_price_list.append(None)
+                crypto_opening_price_list.append(None)
+
+            # 각 리스트에 데이터 삽입
+            for data_idx in range(len(crypto_data)-1, -1, -1) :
+                # index out of range 방지, 상장일 거래 중지는 무의미
+                if(data_idx != 0) :
+                    if(is_suspension('day', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
+                        # 일시적 거래 중지 직전일의 데이터 입력
+                        crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                        crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
+                        crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+
+                        # 일시적 거래 중지 일수만큼 공란 삽입
+                        for sus in range(0, is_suspension('day', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
+                            crypto_low_price_list.append(None)
+                            crypto_trade_price_list.append(None)
+                            crypto_opening_price_list.append(None)
+                            entire_trade_stop += 1
+                        continue
+
+                # 일반적인 경우의 데이터 입력
+                crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
+                crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+
+            # 일시적 거래 정지 일수만큼 초과 저장된 api 정보 삭제
+            if (entire_trade_stop != 0) :
+                delnum = max_data_num - count + 1
+
+                del crypto_low_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_trade_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_opening_price_list[delnum:delnum + entire_trade_stop]
+
+            # 각 csv파일에 각 리스트 입력
+            csv_writer['low'].writerow(crypto_low_price_list)
+            csv_writer['trade'].writerow(crypto_trade_price_list)
+            csv_writer['opening'].writerow(crypto_opening_price_list)
+
+            # 일시적 거래 정지 존재 경고 출력
+            if(entire_trade_stop) :
+                print("WARNING : Suspension")
+                print("This cryptocurrency " + crypto_list[crypto_idx] + " had %d temporary suspensions.\n" % entire_trade_stop)
+
+        # Requests Error - Status_Code 출력
+        else :
+            print("Critical ERROR!")
+            print("ERROR CODE : %d" % status_cde)
+            break
