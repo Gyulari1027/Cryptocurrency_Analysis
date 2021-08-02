@@ -1,3 +1,12 @@
+import requests
+import json
+import csv
+import time
+from datetime import datetime, timedelta
+
+# 전역변수 목록
+delay_429 = 0
+
 # 암호화폐 목록 불러오기
 def load_crypto_list() :
     crypto_list = []
