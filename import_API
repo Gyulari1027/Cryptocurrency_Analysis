@@ -4,7 +4,6 @@ import csv
 import time
 from datetime import datetime, timedelta
 
-# 전역변수 목록
 delay_429 = 0
 
 # 암호화폐 목록 불러오기
@@ -50,6 +49,7 @@ def is_suspension(data_code, before_time, after_time) :
 def set_csv(data_code) :
     # 가격 데이터 저장 csv 파일 지정
     save_csv_low = open('crypto_data_low_' + data_code + '.csv', 'w', newline = "")
+    save_csv_high = open('crypto_data_opening_' + data_code + '.csv', 'w', newline = "")
     save_csv_trade = open('crypto_data_trade_' + data_code + '.csv', 'w', newline = "")
     save_csv_opening = open('crypto_data_opening_' + data_code + '.csv', 'w', newline = "")
     save_csv_acc_price = open('crypto_data_acc_price_' + data_code + '.csv', 'w', newline = "")
@@ -57,12 +57,14 @@ def set_csv(data_code) :
 
     # 각 csv 파일 별 writer 생성
     crypto_writer_low = csv.writer(save_csv_low)
+    crypto_writer_high = csv.writer(save_csv_high)
     crypto_writer_trade = csv.writer(save_csv_trade)
     crypto_writer_opening = csv.writer(save_csv_opening)
     crypto_writer_acc_price = csv.writer(save_csv_acc_price)
     crypto_writer_acc_volume = csv.writer(save_csv_acc_volume)
 
     csv_writer = {'low' : crypto_writer_low,
+                          'high' : crypto_writer_high,
                           'trade' : crypto_writer_trade,
                           'opening' : crypto_writer_opening,
                           'acc_price' : crypto_writer_acc_price,
@@ -79,6 +81,7 @@ def set_csv_format(csv_writer, crypto_data) :
         entire_date_list.append(crypto_data[date_idx]["candle_date_time_kst"])
 
     csv_writer['low'].writerow(entire_date_list)
+    csv_writer['high'].writerow(entire_date_list)
     csv_writer['trade'].writerow(entire_date_list)
     csv_writer['opening'].writerow(entire_date_list)
     csv_writer['acc_price'].writerow(entire_date_list)
@@ -150,6 +153,7 @@ def crawling_weeks_data() :
         
         # csv 파일 입력을 위한 list 선언
         crypto_low_price_list = []
+        crypto_high_price_list = []
         crypto_trade_price_list = []
         crypto_opening_price_list = []
         crypto_acc_price_list = []
@@ -157,6 +161,7 @@ def crawling_weeks_data() :
 
         # 암호화폐 목록 열 삽입
         crypto_low_price_list.append(crypto_list[crypto_idx])
+        crypto_high_price_list.append(crypto_list[crypto_idx])
         crypto_trade_price_list.append(crypto_list[crypto_idx])
         crypto_opening_price_list.append(crypto_list[crypto_idx])
         crypto_acc_price_list.append(crypto_list[crypto_idx])
@@ -183,6 +188,7 @@ def crawling_weeks_data() :
             # 데이터가 없는 주차에 공란 삽입
             for blank in range(0, max_data_num - count) :
                 crypto_low_price_list.append(None)
+                crypto_high_price_list.append(None)
                 crypto_trade_price_list.append(None)
                 crypto_opening_price_list.append(None)
                 crypto_acc_price_list.append(None)
@@ -195,13 +201,16 @@ def crawling_weeks_data() :
                     if(is_suspension('week', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
                         # 일시적 거래 중지 직전 주의 데이터 입력
                         crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                        crypto_high_price_list.append(crypto_data[data_idx]["high_price"])
                         crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                         crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
                         crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
                         crypto_acc_volume_list.append(crypto_data[data_idx]["candle_acc_trade_volume"])
+                        
                         # 일시적 거래 중지 주수만큼 공란 삽입
                         for sus in range(0, is_suspension('week', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
                             crypto_low_price_list.append(None)
+                            crypto_high_price_list.append(None)
                             crypto_trade_price_list.append(None)
                             crypto_opening_price_list.append(None)
                             crypto_acc_price_list.append(None)
@@ -211,6 +220,7 @@ def crawling_weeks_data() :
 
                 # 일반적인 경우의 데이터 입력
                 crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                crypto_high_price_list.append(crypto_data[data_idx]["high_price"])
                 crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                 crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
                 crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
@@ -221,6 +231,7 @@ def crawling_weeks_data() :
                 delnum = max_data_num - count + 1
 
                 del crypto_low_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_high_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_trade_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_opening_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_acc_price_list[delnum:delnum + entire_trade_stop]
@@ -228,6 +239,7 @@ def crawling_weeks_data() :
 
             # 각 csv파일에 각 리스트 입력
             csv_writer['low'].writerow(crypto_low_price_list)
+            csv_writer['high'].writerow(crypto_low_price_list)
             csv_writer['trade'].writerow(crypto_trade_price_list)
             csv_writer['opening'].writerow(crypto_opening_price_list)
             csv_writer['acc_price'].writerow(crypto_acc_price_list)
@@ -262,6 +274,7 @@ def crawling_days_data() :
 
         # csv 파일 입력을 위한 list 선언
         crypto_low_price_list = []
+        crypto_high_price_list = []
         crypto_trade_price_list = []
         crypto_opening_price_list = []
         crypto_acc_price_list = []
@@ -269,6 +282,7 @@ def crawling_days_data() :
 
         # 암호화폐 목록 열 삽입
         crypto_low_price_list.append(crypto_list[crypto_idx])
+        crypto_high_price_list.append(crypto_list[crypto_idx])
         crypto_trade_price_list.append(crypto_list[crypto_idx])
         crypto_opening_price_list.append(crypto_list[crypto_idx])
         crypto_acc_price_list.append(crypto_list[crypto_idx])
@@ -295,6 +309,7 @@ def crawling_days_data() :
             # 데이터가 없는 주차에 공란 삽입
             for blank in range(0, max_data_num - count) :
                 crypto_low_price_list.append(None)
+                crypto_high_price_list.append(None)
                 crypto_trade_price_list.append(None)
                 crypto_opening_price_list.append(None)
                 crypto_acc_price_list.append(None)
@@ -307,6 +322,7 @@ def crawling_days_data() :
                     if(is_suspension('day', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
                         # 일시적 거래 중지 직전일의 데이터 입력
                         crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                        crypto_high_price_list.append(crypto_data[data_idx]["high_price"])
                         crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                         crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
                         crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
@@ -315,6 +331,7 @@ def crawling_days_data() :
                         # 일시적 거래 중지 일수만큼 공란 삽입
                         for sus in range(0, is_suspension('day', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
                             crypto_low_price_list.append(None)
+                            crypto_high_price_list.append(None)
                             crypto_trade_price_list.append(None)
                             crypto_opening_price_list.append(None)
                             crypto_acc_price_list.append(None)
@@ -324,6 +341,7 @@ def crawling_days_data() :
 
                 # 일반적인 경우의 데이터 입력
                 crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
+                crypto_high_price_list.append(crypto_data[data_idx]["high_price"])
                 crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                 crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
                 crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
@@ -334,6 +352,7 @@ def crawling_days_data() :
                 delnum = max_data_num - count + 1
 
                 del crypto_low_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_high_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_trade_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_opening_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_acc_price_list[delnum:delnum + entire_trade_stop]
@@ -341,6 +360,7 @@ def crawling_days_data() :
 
             # 각 csv파일에 각 리스트 입력
             csv_writer['low'].writerow(crypto_low_price_list)
+            csv_writer['high'].writerow(crypto_low_price_list)
             csv_writer['trade'].writerow(crypto_trade_price_list)
             csv_writer['opening'].writerow(crypto_opening_price_list)
             csv_writer['acc_price'].writerow(crypto_acc_price_list)
