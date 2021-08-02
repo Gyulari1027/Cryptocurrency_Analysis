@@ -19,7 +19,7 @@ def load_crypto_list() :
             crypto_list.append(crypto)
 
     return crypto_list
-    
+
 # 암호화폐 Upbit 상장 시점 불러오기
 def load_init_time(data_code, crypto_list, crypto_idx) :
     init_csv = open('crypto_init_time_' + data_code + '.csv', 'r')
@@ -27,7 +27,7 @@ def load_init_time(data_code, crypto_list, crypto_idx) :
     crypto_init_time = {rows[0] : rows[1] for rows in init_csv_reader}
 
     return crypto_init_time[crypto_list[crypto_idx] + '_init_time']
-    
+
 # 암호화폐 Upbit 상장 이후 데이터 수 연산
 def cal_data_num(data_code, init_time) :
     pass_time = datetime.now() - datetime.strptime(init_time, '%Y-%m-%d %H:%M:%S.%f')
@@ -52,15 +52,21 @@ def set_csv(data_code) :
     save_csv_low = open('crypto_data_low_' + data_code + '.csv', 'w', newline = "")
     save_csv_trade = open('crypto_data_trade_' + data_code + '.csv', 'w', newline = "")
     save_csv_opening = open('crypto_data_opening_' + data_code + '.csv', 'w', newline = "")
+    save_csv_acc_price = open('crypto_data_acc_price_' + data_code + '.csv', 'w', newline = "")
+    save_csv_acc_volume = open('crypto_data_acc_volume_' + data_code + '.csv', 'w', newline = "")
 
     # 각 csv 파일 별 writer 생성
     crypto_writer_low = csv.writer(save_csv_low)
     crypto_writer_trade = csv.writer(save_csv_trade)
     crypto_writer_opening = csv.writer(save_csv_opening)
+    crypto_writer_acc_price = csv.writer(save_csv_acc_price)
+    crypto_writer_acc_volume = csv.writer(save_csv_acc_volume)
 
     csv_writer = {'low' : crypto_writer_low,
-                  'trade' : crypto_writer_trade,
-                  'opening' : crypto_writer_opening}
+                          'trade' : crypto_writer_trade,
+                          'opening' : crypto_writer_opening,
+                          'acc_price' : crypto_writer_acc_price,
+                          'acc_volume' : crypto_writer_acc_volume}
 
     return csv_writer
 
@@ -75,6 +81,9 @@ def set_csv_format(csv_writer, crypto_data) :
     csv_writer['low'].writerow(entire_date_list)
     csv_writer['trade'].writerow(entire_date_list)
     csv_writer['opening'].writerow(entire_date_list)
+    csv_writer['acc_price'].writerow(entire_date_list)
+    csv_writer['acc_volume'].writerow(entire_date_list)
+
 
 # 데이터 크롤링
 def crawling(data_code, url, headers, count, crypto_name) :
@@ -143,11 +152,15 @@ def crawling_weeks_data() :
         crypto_low_price_list = []
         crypto_trade_price_list = []
         crypto_opening_price_list = []
+        crypto_acc_price_list = []
+        crypto_acc_volume_list = []
 
         # 암호화폐 목록 열 삽입
         crypto_low_price_list.append(crypto_list[crypto_idx])
         crypto_trade_price_list.append(crypto_list[crypto_idx])
         crypto_opening_price_list.append(crypto_list[crypto_idx])
+        crypto_acc_price_list.append(crypto_list[crypto_idx])
+        crypto_acc_volume_list.append(crypto_list[crypto_idx])
 
         # 암호화폐 개별 상장 이후 주수 연산
         init_time = load_init_time('week', crypto_list, crypto_idx)
@@ -172,6 +185,8 @@ def crawling_weeks_data() :
                 crypto_low_price_list.append(None)
                 crypto_trade_price_list.append(None)
                 crypto_opening_price_list.append(None)
+                crypto_acc_price_list.append(None)
+                crypto_acc_volume_list.append(None)
 
             # 각 리스트에 데이터 삽입
             for data_idx in range(len(crypto_data)-1, -1, -1) :
@@ -182,11 +197,15 @@ def crawling_weeks_data() :
                         crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
                         crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                         crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+                        crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
+                        crypto_acc_volume_list.append(crypto_data[data_idx]["candle_acc_trade_volume"])
                         # 일시적 거래 중지 주수만큼 공란 삽입
                         for sus in range(0, is_suspension('week', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
                             crypto_low_price_list.append(None)
                             crypto_trade_price_list.append(None)
                             crypto_opening_price_list.append(None)
+                            crypto_acc_price_list.append(None)
+                            crypto_acc_volume_list.append(None)
                             entire_trade_stop += 1
                         continue
 
@@ -194,6 +213,8 @@ def crawling_weeks_data() :
                 crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
                 crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                 crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+                crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
+                crypto_acc_volume_list.append(crypto_data[data_idx]["candle_acc_trade_volume"])
 
             # 일시적 거래 정지 일수만큼 초과 저장된 api 정보 삭제
             if (entire_trade_stop != 0) :
@@ -202,11 +223,15 @@ def crawling_weeks_data() :
                 del crypto_low_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_trade_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_opening_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_acc_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_acc_volume_list[delnum:delnum + entire_trade_stop]
 
             # 각 csv파일에 각 리스트 입력
             csv_writer['low'].writerow(crypto_low_price_list)
             csv_writer['trade'].writerow(crypto_trade_price_list)
             csv_writer['opening'].writerow(crypto_opening_price_list)
+            csv_writer['acc_price'].writerow(crypto_acc_price_list)
+            csv_writer['acc_volume'].writerow(crypto_acc_volume_list)
 
             # 일시적 거래 정지 존재 경고 출력
             if(entire_trade_stop) :
@@ -239,11 +264,15 @@ def crawling_days_data() :
         crypto_low_price_list = []
         crypto_trade_price_list = []
         crypto_opening_price_list = []
+        crypto_acc_price_list = []
+        crypto_acc_volume_list = []
 
         # 암호화폐 목록 열 삽입
         crypto_low_price_list.append(crypto_list[crypto_idx])
         crypto_trade_price_list.append(crypto_list[crypto_idx])
         crypto_opening_price_list.append(crypto_list[crypto_idx])
+        crypto_acc_price_list.append(crypto_list[crypto_idx])
+        crypto_acc_volume_list.append(crypto_list[crypto_idx])
 
         # 암호화폐 개별 상장 이후 일수 연산
         init_time = load_init_time('day', crypto_list, crypto_idx)
@@ -268,6 +297,8 @@ def crawling_days_data() :
                 crypto_low_price_list.append(None)
                 crypto_trade_price_list.append(None)
                 crypto_opening_price_list.append(None)
+                crypto_acc_price_list.append(None)
+                crypto_acc_volume_list.append(None)
 
             # 각 리스트에 데이터 삽입
             for data_idx in range(len(crypto_data)-1, -1, -1) :
@@ -278,12 +309,16 @@ def crawling_days_data() :
                         crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
                         crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                         crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+                        crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
+                        crypto_acc_volume_list.append(crypto_data[data_idx]["candle_acc_trade_volume"])
 
                         # 일시적 거래 중지 일수만큼 공란 삽입
                         for sus in range(0, is_suspension('day', crypto_data[data_idx]["candle_date_time_kst"], crypto_data[data_idx-1]["candle_date_time_kst"])) :
                             crypto_low_price_list.append(None)
                             crypto_trade_price_list.append(None)
                             crypto_opening_price_list.append(None)
+                            crypto_acc_price_list.append(None)
+                            crypto_acc_volume_list.append(None)
                             entire_trade_stop += 1
                         continue
 
@@ -291,6 +326,8 @@ def crawling_days_data() :
                 crypto_low_price_list.append(crypto_data[data_idx]["low_price"])
                 crypto_trade_price_list.append(crypto_data[data_idx]["trade_price"])
                 crypto_opening_price_list.append(crypto_data[data_idx]["opening_price"])
+                crypto_acc_price_list.append(crypto_data[data_idx]["candle_acc_trade_price"])
+                crypto_acc_volume_list.append(crypto_data[data_idx]["candle_acc_trade_volume"])
 
             # 일시적 거래 정지 일수만큼 초과 저장된 api 정보 삭제
             if (entire_trade_stop != 0) :
@@ -299,11 +336,15 @@ def crawling_days_data() :
                 del crypto_low_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_trade_price_list[delnum:delnum + entire_trade_stop]
                 del crypto_opening_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_acc_price_list[delnum:delnum + entire_trade_stop]
+                del crypto_acc_volume_list[delnum:delnum + entire_trade_stop]
 
             # 각 csv파일에 각 리스트 입력
             csv_writer['low'].writerow(crypto_low_price_list)
             csv_writer['trade'].writerow(crypto_trade_price_list)
             csv_writer['opening'].writerow(crypto_opening_price_list)
+            csv_writer['acc_price'].writerow(crypto_acc_price_list)
+            csv_writer['acc_volume'].writerow(crypto_acc_volume_list)
 
             # 일시적 거래 정지 존재 경고 출력
             if(entire_trade_stop) :
