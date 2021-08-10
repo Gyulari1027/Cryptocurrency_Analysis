@@ -1,13 +1,11 @@
 # 데이터 프레임 입력 및 확인
 df = pd.read_csv('all_data.csv', engine='python')
-print(df.shape)
-df.head()
 
 # 훈련 데이터 생성
 low_training_set = df.iloc[:1000, 1:2].values
 low_test_set = df.iloc[1000:, 1:2].values
 
-scaler = MinMaxScaler(feature_range = (0,1))
+scaler = MinMaxScaler()
 low_training_set_scaled = scaler.fit_transform(low_training_set)
 
 x_train = []
@@ -24,15 +22,9 @@ x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 # 모델 구축
 with tf.device('/gpu:0'):
     model = models.Sequential()
-    model.add(layers.LSTM(units=50, return_sequences=True, input_shape = (x_train.shape[1], 1)))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.LSTM(units=50, return_sequences=True))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.LSTM(units=50, return_sequences=True))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.LSTM(units=50))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.Dense(units=1))
+    model.add(layers.LSTM(units=25, input_shape = (x_train.shape[1], 1)))
+    model.add(layers.Dropout(0.05))
+    model.add(layers.Dense(units=1, activation='elu'))
     model.compile(optimizer='adam', loss = 'mean_absolute_error')
     
 # 모델 동작
@@ -76,7 +68,7 @@ tententen = np.reshape(tententen, (tententen.shape[0], 1))
 
 plt.figure(figsize=(28,10))
 plt.plot(tententen,low_dataset_test.values, color = 'red', label = 'Real BTC Price')
-plt.plot(tententen,predict_price_inverse, color = 'blue', label = 'Predicted TESLA Stock Price')
+plt.plot(tententen,predict_price_inverse, color = 'blue', label = 'Predicted BTC Price')
 plt.xticks(np.arange(0,460,50))
 plt.title('BTC Prediction')
 plt.xlabel('Date')
