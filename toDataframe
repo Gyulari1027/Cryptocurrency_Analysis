@@ -1,0 +1,79 @@
+# 데이터 프레임화
+def all_data_write(cryptoCode, dateCode) :
+    low_data = []
+    high_data = []        
+    trade_data = []
+    acc_price_data = []
+    acc_volume_data = []
+
+    format = []
+
+    importCSV_low = open('crypto_data_low_' + dateCode + '.csv', 'r')
+    importCSV_high = open('crypto_data_high_' + dateCode + '.csv', 'r')
+    importCSV_trade = open('crypto_data_trade_' + dateCode + '.csv', 'r')
+    importCSV_acc_price = open('crypto_data_acc_price_' + dateCode + '.csv', 'r')
+    importCSV_acc_volume = open('crypto_data_acc_volume_' + dateCode + '.csv', 'r')
+
+    crypto_csv_reader = csv.reader(importCSV_low)
+    low_data = list(crypto_csv_reader)
+
+    for crypto_idx in range(0, len(low_data)) :
+        if(low_data[crypto_idx][0] == cryptoCode) :
+            low_data = low_data[crypto_idx][1:]
+            break
+
+    crypto_csv_reader = csv.reader(importCSV_high)
+    high_data = list(crypto_csv_reader)
+
+    for crypto_idx in range(0, len(high_data)) :
+        if(high_data[crypto_idx][0] == cryptoCode) :
+            high_data = high_data[crypto_idx][1:]
+            break
+
+    crypto_csv_reader = csv.reader(importCSV_trade)
+    trade_data = list(crypto_csv_reader)
+
+    for crypto_idx in range(0, len(trade_data)) :
+        if(trade_data[crypto_idx][0] == cryptoCode) :
+            trade_data = trade_data[crypto_idx][1:]
+            break
+
+    crypto_csv_reader = csv.reader(importCSV_acc_price)
+    acc_price_data = list(crypto_csv_reader)
+
+    for crypto_idx in range(0, len(acc_price_data)) :
+        if(acc_price_data[crypto_idx][0] == cryptoCode) :
+            acc_price_data = acc_price_data[crypto_idx][1:]
+            break
+
+    crypto_csv_reader = csv.reader(importCSV_acc_volume)
+    acc_volume_data = list(crypto_csv_reader)
+
+    for crypto_idx in range(0, len(acc_volume_data)) :
+        if(acc_volume_data[crypto_idx][0] == cryptoCode) :
+            acc_volume_data = acc_volume_data[crypto_idx][1:]
+            break
+
+    save_csv = open('all_data.csv', 'w', newline = "")
+    crypto_writer = csv.writer(save_csv)
+
+    format.append('date')
+    format.append('low')
+    format.append('high')
+    format.append('trade')
+    format.append('acc_price')
+    format.append('acc_volume')
+
+    crypto_writer.writerow(format)
+
+    for idx in range(0, len(low_data)-1) :
+        all_list = []
+        all_list.append(idx+1)
+        all_list.append(low_data[idx])
+        all_list.append(high_data[idx])
+        all_list.append(trade_data[idx])
+        all_list.append(acc_price_data[idx])
+        all_list.append(acc_volume_data[idx])
+        crypto_writer.writerow(all_list)
+
+all_data_write('BTC', 'day')
